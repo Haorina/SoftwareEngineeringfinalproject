@@ -12,52 +12,111 @@ st.set_page_config(
 
 # 初始化 Session State
 if 'cart' not in st.session_state:
-    st.session_state.cart = []
+    st.session_state.cart = {}
 
 if 'orders' not in st.session_state:
     st.session_state.orders = []
 
 # ---------------------------------------------------------
-# 美化區塊
+# 美化區塊 (CSS)
 # ---------------------------------------------------------
 st.markdown("""
 <style>
-    /* 1. 按鈕美化 */
-    .stButton>button {
-        background-color: #7D9BA1; /* 北歐風霧藍 */
+    /* 1. 全局字體與設定 */
+    h1, h2, h3, h4, span, p, div {
+        font-family: 'Helvetica Neue', sans-serif;
+    }
+    img {
+        border-radius: 8px;
+    }
+
+    /* 2. 一般按鈕 (維持原樣) */
+    .stButton > button {
+        background-color: #7D9BA1;
         color: white !important;
         border-radius: 20px;
         border: none;
         font-weight: bold;
         transition: 0.3s;
+        box-shadow: 0px 2px 4px rgba(0,0,0,0.1);
+        padding: 0.5rem 1rem;
     }
-    .stButton>button:hover {
+    .stButton > button:hover {
         background-color: #5D7B81;
         transform: translateY(-2px);
+        color: white !important;
     }
 
-    /* 2. 卡片樣式 (使用變數適應深淺色) */
+    /* ============================================================
+       3. [終極修正] 側邊欄購物車佈局
+       目標： - 靠最左， + 靠最右，數字居中
+    ============================================================ */
+    
+    /* (A) 移除水平區塊間距 */
+    [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] {
+        gap: 0 !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] [data-testid="column"] {
+        padding: 0 !important;
+        min-width: 0 !important;
+    }
+
+    /* (B) 共通按鈕樣式 (去背、字體大) */
+    [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] .stButton > button {
+        background-color: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        color: var(--text-color) !important;
+        height: 40px !important;
+        width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        font-size: 24px !important;
+        font-weight: bold !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        padding-top: 3px !important;
+    }
+
+    /* (C) [關鍵] 分別指定對齊方向 */
+    
+    /* 第一欄 (減號) -> 靠左對齊 (Flex-start) */
+    [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] [data-testid="column"]:nth-of-type(1) .stButton > button {
+        justify-content: flex-start !important; /* 靠左 */
+    }
+
+    /* 第三欄 (加號) -> 靠右對齊 (Flex-end) */
+    [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] [data-testid="column"]:nth-of-type(3) .stButton > button {
+        justify-content: flex-end !important; /* 靠右 */
+    }
+
+    /* Hover 效果 */
+    [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] .stButton > button:hover {
+        color: #7D9BA1 !important;
+        transform: scale(1.2);
+    }
+    
+    /* 其他互動效果 */
+    [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] .stButton > button:active {
+        color: var(--text-color) !important;
+        transform: scale(0.9);
+    }
+    [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] .stButton > button:focus {
+        outline: none !important;
+        box-shadow: none !important;
+        color: var(--text-color) !important;
+    }
+
+    /* 4. 側邊欄背景設定 */
     [data-testid="stVerticalBlockBorderWrapper"] {
         background-color: var(--secondary-background-color); 
         border-radius: 15px;
         border: 1px solid rgba(128, 128, 128, 0.2);
         padding: 15px !important;
     }
-
-    /* 3. 側邊欄 */
     [data-testid="stSidebar"] {
         background-color: var(--secondary-background-color);
         border-right: 1px solid rgba(128, 128, 128, 0.1);
-    }
-
-    /* 4. 字體設定 */
-    h1, h2, h3, h4, span, p, div {
-        font-family: 'Helvetica Neue', sans-serif;
-    }
-    
-    /* 5. 圖片圓角 */
-    img {
-        border-radius: 8px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -73,22 +132,32 @@ def load_data():
         {"id": 4, "name": "人體工學椅", "category": "辦公家具", "price": 8000, "image": "https://piinterior-net.sfo3.digitaloceanspaces.com/wp-content/uploads/2024/12/scimgFhtCHm.webp"},
         {"id": 5, "name": "Type-C集線器", "category": "3C周邊", "price": 900, "image": "https://i0.wp.com/lpcomment.com/wp-content/uploads/2017/04/%E6%83%85%E5%A2%83%E5%9C%967.jpg?fit=760%2C438&ssl=1"},
         {"id": 6, "name": "4K螢幕", "category": "影音設備", "price": 12000, "image": "https://attach.mobile01.com/attach/202411/mobile01-457221a9759255cc1832ddffa7d8e2f9.jpg"},
-         {"id": 7, "name": "音響", "category": "影音設備", "price": 6000, "image": "https://attach.mobile01.com/attach/202411/mobile01-457221a9759255cc1832ddffa7d8e2f9.jpg"},
-         {"id": 8, "name": "麥克風", "category": "影音設備", "price": 3000, "image": "https://attach.mobile01.com/attach/202411/mobile01-457221a9759255cc1832ddffa7d8e2f9.jpg"},
+        {"id": 7, "name": "音響", "category": "影音設備", "price": 6000, "image": "https://attach.mobile01.com/attach/202411/mobile01-457221a9759255cc1832ddffa7d8e2f9.jpg"},
+        {"id": 8, "name": "麥克風", "category": "影音設備", "price": 3000, "image": "https://attach.mobile01.com/attach/202411/mobile01-457221a9759255cc1832ddffa7d8e2f9.jpg"},
     ]
     return pd.DataFrame(data)
 
-# [FIX 1] 定義一個「加入購物車」的 callback 函數
-# 這個函數會在按鈕按下時「優先」執行，確保購物車在畫面更新前就已經拿到資料
 def add_to_cart_callback(item):
-    st.session_state.cart.append(item)
-    st.toast(f"✅ 已將 {item['name']} 加入購物車！")
+    item_id = item['id']
+    if item_id in st.session_state.cart:
+        st.session_state.cart[item_id]['quantity'] += 1
+        st.toast(f"✅ {item['name']} 數量增加！")
+    else:
+        new_item = item.to_dict() if isinstance(item, pd.Series) else item
+        new_item['quantity'] = 1
+        st.session_state.cart[item_id] = new_item
+        st.toast(f"✅ 已將 {item['name']} 加入購物車！")
+
+def update_quantity(item_id, change):
+    if item_id in st.session_state.cart:
+        st.session_state.cart[item_id]['quantity'] += change
+        if st.session_state.cart[item_id]['quantity'] <= 0:
+            del st.session_state.cart[item_id]
 
 def display_products(df):
     st.title("🌿 Shop") 
     st.markdown("---")
     
-    # 篩選器
     categories = ["全部"] + list(df['category'].unique())
     selected_cat = st.radio("分類篩選 (Category)", categories, horizontal=True)
     
@@ -97,7 +166,6 @@ def display_products(df):
 
     st.markdown("<br>", unsafe_allow_html=True) 
 
-    # 商品展示
     cols = st.columns(3)
     for i, (index, row) in enumerate(df.iterrows()):
         with cols[i % 3]:
@@ -109,17 +177,15 @@ def display_products(df):
                 c1.caption(row['category'])
                 c2.markdown(f"**NT$ {row['price']:,}**")
                 
-                # [FIX 2] 改用 on_click 參數
-                # 注意：這裡不直接寫邏輯，而是呼叫上面的 callback 函數
                 st.button(
                     "加入購物車 (Add)", 
                     key=f"add_{row['id']}", 
-                    on_click=add_to_cart_callback,  # 指定 callback
-                    args=(row,)  # 傳遞參數給 callback
+                    on_click=add_to_cart_callback,
+                    args=(row,)
                 )
 
 # ==========================================
-# [Member C] 購物車與側邊欄邏輯
+# 購物車與側邊欄邏輯
 # ==========================================
 def display_cart():
     st.sidebar.title("🛒 Your Cart")
@@ -131,22 +197,53 @@ def display_cart():
 
     total_price = 0
     
-    for i, item in enumerate(st.session_state.cart):
+    for item_id, item in list(st.session_state.cart.items()):
         with st.sidebar.container(border=True):
-            col1, col2 = st.columns([2, 1])
-            col1.write(f"**{item['name']}**")
-            col2.write(f"${item['price']}")
-        total_price += item['price']
+            st.markdown(f"**{item['name']}**")
+            
+            # [修改重點] 改為 [1, 2, 1] 比例，讓中間數字寬一點，把按鈕推向兩邊
+            c1, c2, c3 = st.columns([1, 6, 1])
+            
+            with c1:
+                st.button("－", key=f"dec_{item_id}", on_click=update_quantity, args=(item_id, -1))
+            
+            with c2:
+                # 數字區塊
+                st.markdown(
+                    f"""
+                    <div style='
+                        width: 100%;
+                        height: 40px; 
+                        display: flex; 
+                        justify-content: center; 
+                        align-items: center; 
+                        font-size: 18px; 
+                        font-weight: bold;
+                        margin: 0; 
+                        padding: 0;'>
+                        {item['quantity']}
+                    </div>
+                    """, 
+                    unsafe_allow_html=True
+                )
+            
+            with c3:
+                st.button("＋", key=f"inc_{item_id}", on_click=update_quantity, args=(item_id, 1))
+            
+            item_total = item['price'] * item['quantity']
+            st.markdown(f"<div style='text-align: right; color: gray; font-size: 0.9em; margin-top: -10px;'>${item_total:,}</div>", unsafe_allow_html=True)
+            
+            total_price += item_total
     
     st.sidebar.markdown("---")
     st.sidebar.subheader(f"Total: NT$ {total_price:,}")
     
-    if st.sidebar.button("🗑️ 清空購物車"):
-        st.session_state.cart = []
+    if st.sidebar.button("🗑️ 清空購物車", use_container_width=True):
+        st.session_state.cart = {}
         st.rerun()
 
 # ==========================================
-# [Member D] 結帳與後台
+# 結帳與後台
 # ==========================================
 def checkout_section():
     st.sidebar.markdown("<br>", unsafe_allow_html=True)
@@ -160,14 +257,18 @@ def checkout_section():
                 
                 if submitted:
                     if name and address:
+                        current_total = sum(item['price'] * item['quantity'] for item in st.session_state.cart.values())
+                        total_items = sum(item['quantity'] for item in st.session_state.cart.values())
+                        
                         order_info = {
                             "Name": name,
                             "Email": email,
-                            "Total": sum(item['price'] for item in st.session_state.cart),
-                            "Items": len(st.session_state.cart)
+                            "Total": current_total,
+                            "Items_Count": total_items,
+                            "Order_Details": str([f"{v['name']} x{v['quantity']}" for v in st.session_state.cart.values()])
                         }
                         st.session_state.orders.append(order_info)
-                        st.session_state.cart = [] 
+                        st.session_state.cart = {}
                         st.success("🎉 訂單已送出！")
                         st.balloons()
                         st.rerun()
@@ -185,9 +286,6 @@ def admin_view():
         else:
             st.info("目前尚無訂單")
 
-# ==========================================
-# 主程式
-# ==========================================
 def main():
     df = load_data()
     display_cart()
