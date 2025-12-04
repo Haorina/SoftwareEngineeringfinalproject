@@ -1,8 +1,7 @@
 # ui_components.py
 import streamlit as st
 from data_manager import add_to_cart_callback, update_quantity, clear_cart_callback, submit_order_callback
-# 👇 引入所有需要的資料庫函式 (含新增商品)
-from database import get_user_info, get_all_orders, update_order_status, add_new_product
+from database import get_user_info
 
 # ==========================================
 # 介面渲染：美化 CSS
@@ -25,7 +24,6 @@ def apply_styles():
             transform: translateY(-2px);
             color: white !important;
         }
-        /* 側邊欄調整 */
         [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] { gap: 0 !important; }
         [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] [data-testid="column"] { padding: 0 !important; min-width: 0 !important; }
         [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] .stButton > button {
@@ -99,12 +97,12 @@ def display_cart():
             total_price += item_total
     
     st.sidebar.markdown("---")
-    st.sidebar.subheader(f"Total: NT$ {total_price:,}")
+    st.sidebar.caption(f"小計: NT$ {total_price:,}")
     if st.sidebar.button("🗑️ 清空購物車", use_container_width=True):
         clear_cart_callback() 
 
 # ==========================================
-# 介面渲染：結帳區塊
+# 介面渲染：結帳區塊 (含優惠券邏輯)
 # ==========================================
 def checkout_section():
     st.sidebar.markdown("<br>", unsafe_allow_html=True)
@@ -115,19 +113,45 @@ def checkout_section():
             return 
 
         with st.sidebar.expander("💳 結帳確認 (Checkout)", expanded=True):
+            # 1. 計算原始金額
+            original_total = sum(item['price'] * item['quantity'] for item in st.session_state.cart.values())
+            
+            # 2. 優惠券邏輯 (你修改過的版本)
+            coupon_code = st.text_input("🎟️ 優惠代碼 (Coupon)", placeholder="輸入優惠碼")
+            discount = 0
+            
+            if coupon_code == "VIP888":
+                discount = int(original_total * 0.1) # 打九折
+                st.success("🎉 優惠碼生效！折抵 10%")
+            elif coupon_code:
+                st.error("❌ 無效的優惠碼")
+            
+            final_total = original_total - discount
+            
+            # 3. 顯示金額明細
+            st.markdown(f"""
+            <div style="background-color: #f0f2f6; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; color: black;"><span>商品總計:</span> <span>${original_total:,}</span></div>
+                <div style="display: flex; justify-content: space-between; color: #ff4b4b;"><span>折扣優惠:</span> <span>-${discount:,}</span></div>
+                <hr style="margin: 5px 0;">
+                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1em; color: black;"><span>應付金額:</span> <span>${final_total:,}</span></div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # 4. 取得使用者資料
             user_info = get_user_info(st.session_state.current_user)
             saved_name = user_info.get('real_name') if user_info else ""
             saved_email = user_info.get('email') if user_info else ""
             saved_addr = user_info.get('address') if user_info else ""
 
+            # 5. 送出訂單
             if saved_name and saved_addr:
                 st.info("📦 將配送至以下地址：")
                 st.markdown(f"**收件人：** {saved_name}")
-                st.markdown(f"**Email：** {saved_email}")
                 st.markdown(f"**地址：** {saved_addr}")
                 
                 if st.button("🚀 確認下單 (Place Order)", use_container_width=True):
-                    submit_order_callback(saved_name, saved_email, saved_addr)
+                    submit_order_callback(saved_name, saved_email, saved_addr, original_total, discount, final_total)
             else:
                 st.warning("⚠️ 您的會員資料不完整，請手動填寫")
                 with st.form("checkout_form"):
@@ -137,58 +161,4 @@ def checkout_section():
                     
                     submitted = st.form_submit_button("確認下單")
                     if submitted:
-                        submit_order_callback(name, email, address)
-
-# ==========================================
-# 介面渲染：管理員後台 (整合式)
-# ==========================================
-def admin_dashboard():
-    st.title("🔧 管理員後台 (Admin Dashboard)")
-    
-    # 1. 顯示訂單列表
-    df_orders = get_all_orders()
-    if not df_orders.empty:
-        total_revenue = df_orders['total_amount'].sum()
-        kpi1, kpi2 = st.columns(2)
-        kpi1.metric("總營收", f"NT$ {total_revenue:,}")
-        kpi2.metric("總訂單數", len(df_orders))
-    else:
-        st.info("目前沒有任何訂單")
-
-    st.markdown("---")
-
-    # 2. 新增上架商品 (使用 Expander)
-    with st.expander("➕ 新增上架商品 (Add New Product)", expanded=False):
-        with st.form("add_product_form"):
-            st.caption("輸入商品資訊並上架")
-            new_name = st.text_input("商品名稱 (Product Name)")
-            c1, c2 = st.columns(2)
-            with c1:
-                new_category = st.selectbox("分類", ["3C周邊", "影音設備", "辦公家具", "玩具", "其他"])
-            with c2:
-                new_price = st.number_input("價格", min_value=1, step=100)
-            new_image = st.text_input("圖片網址 (Image URL)")
-            
-            if st.form_submit_button("確認上架"):
-                if new_name and new_price and new_image:
-                    if add_new_product(new_name, new_category, int(new_price), new_image):
-                        st.success(f"✅ 上架成功：{new_name}")
-                    else:
-                        st.error("❌ 上架失敗")
-                else:
-                    st.error("⚠️ 請填寫完整")
-
-    st.markdown("### 📋 訂單管理列表")
-    if not df_orders.empty:
-        for index, row in df_orders.iterrows():
-            with st.expander(f"訂單 #{row['id']} - {row['customer_name']}"):
-                st.write(f"商品：{row['items_summary']}")
-                st.caption(f"地址：{row['customer_address']}")
-                
-                new_status = st.selectbox("狀態", ["處理中", "已出貨", "已完成", "取消"], 
-                                        index=["處理中", "已出貨", "已完成", "取消"].index(row['status']) if row['status'] in ["處理中", "已出貨", "已完成", "取消"] else 0,
-                                        key=f"st_{row['id']}")
-                if st.button("更新狀態", key=f"btn_{row['id']}"):
-                    update_order_status(row['id'], new_status)
-                    st.success("已更新")
-                    st.rerun()
+                        submit_order_callback(name, email, address, original_total, discount, final_total)

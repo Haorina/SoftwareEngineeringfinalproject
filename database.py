@@ -23,13 +23,16 @@ def init_db():
         )
     ''')
     
-    # 2. 訂單資料表
+    # 2. 訂單資料表 (已新增 original_amount, discount)
     c.execute('''
         CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             order_date TEXT, username TEXT, customer_name TEXT,
             customer_email TEXT, customer_address TEXT,
-            total_amount INTEGER, items_summary TEXT, status TEXT
+            total_amount INTEGER, 
+            original_amount INTEGER,  -- 新增：原始金額
+            discount INTEGER,         -- 新增：折扣金額
+            items_summary TEXT, status TEXT
         )
     ''')
 
@@ -100,13 +103,11 @@ def get_user_info(username):
 # 商品讀取與管理功能
 # ==========================================
 def get_all_products():
-    """從資料庫讀取所有商品"""
     conn = sqlite3.connect(DB_NAME)
     df = pd.read_sql_query("SELECT * FROM products", conn)
     conn.close()
     return df
 
-# 👇 新增這個函式：新增商品
 def add_new_product(name, category, price, image_url):
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
@@ -122,16 +123,18 @@ def add_new_product(name, category, price, image_url):
         conn.close()
 
 # ==========================================
-# 訂單相關功能
+# 訂單相關功能 (更新版)
 # ==========================================
-def save_order_to_db(username, name, email, address, total, items):
+def save_order_to_db(username, name, email, address, total, original, discount, items):
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # 這裡的欄位順序要跟 INSERT 對應
     c.execute('''INSERT INTO orders (order_date, username, customer_name, customer_email, 
-                 customer_address, total_amount, items_summary, status) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)''', 
-              (date, username, name, email, address, total, items, "處理中"))
+                 customer_address, total_amount, original_amount, discount, items_summary, status) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+              (date, username, name, email, address, total, original, discount, items, "處理中"))
     conn.commit()
     conn.close()
 
