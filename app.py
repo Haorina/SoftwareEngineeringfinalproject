@@ -1,39 +1,52 @@
 # app.py
 import streamlit as st
 from data_manager import load_data
-# 👇 移除 admin_dashboard 的引入，這裡不需要它
+# 👇 這裡移除了 admin_dashboard，因為它已經搬去 pages 資料夾了
 from ui_components import apply_styles, display_products, display_cart, checkout_section
 from database import init_db, register_user, check_login 
 
+# 設定頁面資訊 (這是首頁)
 st.set_page_config(page_title="期末專題 - 商店首頁", page_icon="🌿", layout="wide")
 
+# 初始化資料庫與 Session
 init_db()
 if 'cart' not in st.session_state: st.session_state.cart = {} 
 if 'current_user' not in st.session_state: st.session_state.current_user = None 
 
 def main():
+    # 應用 CSS 美化
     apply_styles()
     
-    # --- 側邊欄：一般會員登入 (買家用) ---
+    # ==========================================
+    # 側邊欄：一般會員登入 (買家用)
+    # ==========================================
     with st.sidebar:
         st.markdown("## 👤 會員專區")
+        
+        # 檢查是否已登入
         if st.session_state.current_user:
             st.success(f"Hi, {st.session_state.current_user}")
             if st.button("登出"):
                 st.session_state.current_user = None
                 st.rerun()
         else:
+            # 未登入顯示 登入/註冊 頁籤
             with st.expander("會員登入/註冊", expanded=True):
                 tab1, tab2 = st.tabs(["登入", "註冊"])
+                
+                # --- 登入 Tab ---
                 with tab1: 
                     u = st.text_input("帳號", key="login_user")
                     p = st.text_input("密碼", type="password", key="login_pwd")
                     if st.button("登入", key="btn_login"):
                         if check_login(u, p):
                             st.session_state.current_user = u
+                            st.success("登入成功！")
                             st.rerun()
                         else:
                             st.error("帳號或密碼錯誤")
+                
+                # --- 註冊 Tab ---
                 with tab2: 
                     nu = st.text_input("設定帳號", key="reg_user")
                     np = st.text_input("設定密碼", type="password", key="reg_pwd")
@@ -48,17 +61,19 @@ def main():
                                 st.error("帳號已存在")
                         else:
                             st.warning("請填寫完整")
+        
         st.markdown("---")
+        st.caption("🛍️ 歡迎光臨北歐選物店")
 
     # ==========================================
-    # 商店介面 (所有人都能看到)
+    # 商店主介面 (所有人都能看到)
     # ==========================================
-    df = load_data()
-    display_cart()
-    checkout_section()
+    df = load_data()          # 讀取商品資料
+    display_cart()            # 顯示購物車 (側邊欄)
+    checkout_section()        # 顯示結帳區 (側邊欄)
     
     if not df.empty:
-        display_products(df)
+        display_products(df)  # 顯示商品列表
 
 if __name__ == "__main__":
     main()
